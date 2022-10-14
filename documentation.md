@@ -175,7 +175,7 @@ Every action object can support an optional conditional and the action will only
 ```
 Looking at this you should be able to see there are three different actions under the 'onStart' event and none of them require a condition which means when the game starts all of these actions will be performed. If you look at the first two actions, we are creating the `main_canvas` and `button_1` (Note: The `main_canvas` and `button_1` are defined in the uiData.ts that's why we are able to reference them here, otherwise it will give an error during compilation). By default when an element object is created, it is visible (enabled) in-game, however we want the `button_1` to be invisible (disabled) initially so in the third action we disable the button. Also note that if we write the actions in the wrong order (for-example: disable the button before creating it), it might cause problems. 
 
-*The future goal is to be able to sort the actions based on priorities no matter in what order they are written in the `eventsData` and show an error during compile time in case the problem persists even after sorting them.*
+- *The future goal is to be able to sort the actions based on priorities no matter in what order they are written in the `eventsData` and show an error during compile time in case the problem persists even after sorting them.*
 
 Now let's look at the next part of the code:
 ```js
@@ -214,11 +214,31 @@ public void onKeyPress (KeyCode keyCode) {
 
 As you can in the above code the term `keyCode` is an argument and in `eventsData` we have enclosed it in curly braces, it is so that the compiler can know how to treat the value being compared accurately. Since the type of `keyCode` is KeyCode therefore writing something like `if (keyCode == Q)` will be invalid, however since the compiler knows that keyCode is a variable, it searches for its type, once it finds out that keyCode is of type KeyCode, it converts `Q` to `KeyCode.Q`. Similarly if it was a string it would have enclosed Q in double quotation marks. 
 
-At the point of writing this guide the conditionals are not completely robust since I need to add checks for more cases ways it should handle it however its is functional. 
+You can also use `elementID`s for referring to element objects and in-turn their properties.  The `elementID` is the `id` of the element we specify in `uiData.ts`. Example usage : 
+```js
+{
+	comparator: '==',
+	arguments: ['{button_1}.enabled', 'true']
+}
+```
 
-Note: If we don't enclose any variable term in braces, the conditional might still work. It will simply piece the terms together to create the conditional statement without processing them / checking for types etc. (`if (item_1 comparator item_2)`). However it will have risk of showing errors on runtime (during gameplay).
+Consider the following code for-example:
+```js
+'onKeyPress': [
+	arguments: ['{button_1}.enabled', 'true'] 
+]
+```
 
-If we want multiple conditions we can add multiple condition objects in the 'conditional' array, as explained before.
+The above condition checks whether the button is 'enabled' or not. 
+
+#### Some Notes
+- When the 'disable' action is executed on an element, its 'enabled' property is set to false and when the 'enable' action is executed on an element its 'enabled' property is set to true. (`enabled` property is also modified with the 'toggle' action).
+
+- If we don't enclose any variable term in braces, the conditional might still work. It will simply piece the terms together to create the conditional statement without processing them / checking for types etc. (`if (item_1 comparator item_2)`). However it will have risk of showing errors on runtime (during gameplay).
+
+- At the point of writing this documentation the conditionals are not completely robust since I need to add checks for more cases ways it should handle it however its is functional. 
+
+If we want multiple conditions we can add multiple **condition objects** in the 'conditional' array, as explained before.
 
 *Currently the ability to detect a combination of keys is not added however it is in the to-do list.*
 
@@ -286,3 +306,241 @@ If you observe the code above you'll notice that in 'animationTrigger' actions w
 - `delay` - The delay (in milliseconds) after which the animation should play. This property is optional and if it's not specified, it's value is taken as **0 ms** by default.
 - `repeat` - The number of times the animation should repeat. This property is optional and it's considered as 1 by default. In order to set the animation to play for an infinite number of times we can set it to **-1**.
 - `duration` - The duration (in milliseconds) of the animation. Specifying smaller durations will speed up the animation.
+
+Now that you've read the thing, you can go take a quick look at an [example application](https://gitlab.com/webend1/webend1/-/blob/main/UI%20Generator/application.md) which is very similar to the above code but a bit more detailed.
+
+## Explanation Of The Code
+Now that we know how the program works and how to use it, we will now look deep into the code so that we can change / add features when needed.
+
+The base code is a C# file which contains some pre-written C# code that is mostly object oriented code with some useful methods. The main base code file is called `main.cs` and is located in the `base` directory. There are some other base files like `anim.cs` file which contains the code used while generating animations. The way that code is used will be explained later. There is a sub-folder in the base folder called `elements` which contains all the supported elements like `button`, `slider`, `input` etc. These files contain the class code for the respective elements.
+
+*element - A type of UI component
+element object - An instance of a UI component type*
+
+The class code for an element contains a constructor which creates an instance of that element in the Unity Editor along with an instance of that class in the script. For-example if we create an instance of a button class, as expected it will create a button object in the script but along with that it will also create a UI Button in the Unity Editor. The class object in the script will keep track of all the properties of that button including text, background color, sprite, position, size, animation etc. This approach makes the process of making animations much simpler. So whenever an element object is created, an instance of that UI component is created in the Unity Editor as well and all the properties of that UI component can be tracked / changed using that object of the class.
+
+For better understanding lets use an example. We will 'define' a button element in the `uiData.ts` and use the ***create*** action in the `eventsData.ts` to create it.
+- uiData.ts
+```javascript
+export let uiData = {
+	id: 'mainCanvas',
+	type: 'Canvas',
+	children: [
+		{
+			id: 'theButton',
+			type: 'Button',
+			width: '30%',
+			height: '10%',
+			top: 50,
+			left: 50
+		}
+	]
+};
+```
+- eventsData.ts
+```javascript
+export let unityEvents: string [] = [];
+
+export let eventsData: any = {
+	'onStart': [
+		{
+			type: 'create',
+			data: { 
+				targetID: [
+					'mainCanvas',
+					'theButton',
+				]
+			}
+		}
+	]
+};
+```
+Now after compiling this input you will get an output file in the target assets folder.
+
+***Note: The guide explaining the setup and compilation process is given in the [beginning](#running-the-program).*** 
+
+If you look at the output file it will contain some code from the `base/main.cs` and some from `base/elements/button.cs`. The code that is generated in this case is not too much since there is not much happening. The generated code is this.
+
+```c#
+uiElement  mainCanvas;
+uiElement  theButton;
+
+public  void  onStart () { new  CanvasElement (ref  mainCanvas, null); new  ButtonElement (ref  theButton, mainCanvas.gameObject, width: "30%", height: "10%", top: 50, left: 50); }
+
+public  void  onAnimationStart (string  animationID) { }
+public  void  onAnimationEnd (string  animationID) { }
+public  void  onElementCreate (uiElement  elementID) { }
+public  void  onElementShow (uiElement  elementID) { }
+public  void  onElementHide (uiElement  elementID) { }
+public  void  onElementClicked (uiElement  elementID) { }
+public  void  onElementValueChange (uiElement  elementID) { }
+public  void  onElementEndEdit (uiElement  elementID) { }
+public  void  onKeyPress (KeyCode  keyCode) { }
+public  void  onKeyRelease (KeyCode  keyCode) { }
+public  void  onResolutionChange (int  width, int  height) { }
+```
+
+You will notice that most of the public functions are empty. These functions represent the events and are executed at relevant times. Since in the `eventsData.ts` we didn't specify what happens under `onElementCreate` or `onElementClicked` etc, therefore they are empty. However we did specify that when the `onStart` is executed, it should create the `mainCanvas` and `theButton` element. Let's look at the generated lines responsible for doing that (after adding proper indentation):
+
+```c#
+uiElement  mainCanvas;
+uiElement  theButton;
+
+public  void  onStart () { 
+	new  CanvasElement (ref  mainCanvas, null); 
+	new  ButtonElement (ref  theButton, mainCanvas.gameObject, width: "30%", height: "10%", top: 50, left: 50); 
+}
+```
+
+Note: All the element classes like CanvasElement, ButtonElement, SliderElement etc are derived from one class called uiElement.
+
+We use classes / objects to create and track UI elements for convenience. For 'creating' an element, a constructor is called and as a first argument a variable of type `uiElement` is passed in that constructor so that we can refer to the object later on using that variable. Normally anyone would expect us to create objects like this:
+```c#
+uiElement theButton = new ButtonElement  (...);
+```
+But instead we pass the variable in the constructor:
+```c#
+uiElement theButton;
+new ButtonElement (theButton);
+```
+
+This is an unusual way of creating objects but it is for solving a problem which will be explained later in detail but in short -> normally in the first approach the 'theButton' variable will only be filled once the constructor is fully executed but sometimes we need it to have the address of the object before the constructor is fully executed, to avoid errors that is why we use the second approach and manually store the address of the object in the reference variable right at the start of the constructor's body. 
+
+When the constructor is called the Game Object responsible for that element is created in the Unity Editor along with all the relevant components and required child objects and their components - we want that game object to be associated with the C# object so we can track and edit it - for that the `uiElement` class has an attribute called **gameObject** which stores the created game object. 
+
+The second argument in all the element class constructors is the parent object. You will notice that in the `CanvasElement` the second argument is null since it doesn't have any parents. In the `ButtonElement` it sets `mainCanvas.gameObject` as the parent. Note that `mainCanvas` is a variable of type `uiElement` which is storing the downcasted `ButtonElement` object, this object has an attribute called 'gameObject' of type GameObject which stores the game object of the element associated with that object.
+
+The remaining arguments in the constructors are keyword arguments and they can be provided in any order. They are in the order in which they appear in the `uiData.ts`. Following is the JSON code snippet for `theButton` in `uiData.ts`:
+```
+{
+	id: 'theButton',
+	type: 'Button',
+	width: '30%',
+	height: '10%',
+	top: 50,
+	left: 50
+}
+```
+Here you'll notice that `id` is being used as the name of the reference variable in C#. The `type` tells the translator that the element is of type Button so it creates an object of type ButtonElement and the remaining property related attributes are passed as they are after being processed, for-example if we had also written `normalColor: '#FFFFFFFF'` in the JSON, the output code line for the `ButtonElement` would have been as follows:
+```c#
+new  ButtonElement (ref  theButton, mainCanvas.gameObject, width: "30%", height: "10%", top: 50, left: 50, normalColor: new  Color32 (255, 255, 255, 255));
+```
+The value of the `normalColor` has been translated into a Color32 object. 
+
+Now if you compile and run this code you'll see a button in the center of the screen that is empty. Let's try adding some text inside the button. For that we'll have to create a nested / child element in the button of type 'Text' and set its 'text' property to the text you want. For that, we will modify the code accordingly (uiData.js):
+```json
+export let uiData = {
+	id: 'mainCanvas',
+	type: 'Canvas',
+	children: [
+		{
+			id: 'theButton',
+			type: 'Button',
+			width: '30%',
+			height: '10%',
+			top: 50,
+			left: 50,
+			normalColor: '#FFFFFFFF',
+			children: [
+				{
+					id: 'buttonText',
+					
+					type: 'Text',
+					text: 'Hello World',
+					
+					width: '100%',
+					height: '100%',
+					
+					top: 50,
+					left: 50,
+					
+					fontSize: 18,
+					fontColor: '#000000FF',
+					fontName: 'Roboto Mono',
+					fontVariation: '400'
+				}
+			]
+		}
+	]
+};
+```
+
+In the text element there are a few new things, most of them are self-explanatory. The width and height both are set to 100% while the top and left property is set to 50 (%), this is so that the text is centered in the middle of the Button both vertically and horizontally.
+
+The `fontName` property specifies the name of the font to be used. If you recall, there is a folder `Resources/Fonts` where we can store .tff files for different fonts. The program first looks in that folder and tries to match the 'fontName' to that, if found, it will use that font, otherwise it uses the Google API to retrieve the font - provided that the font is available on the Google Fonts. In this case the font is `Roboto Mono` which it downloads using the Google API. (https://fonts.google.com/specimen/Roboto+Mono)
+
+There was a little challenge while making the font variations. In order to understand the challenge we first need to understand how the font downloading works. The fonts list is retrieved from the Google API, using the following link:
+
+> https://www.googleapis.com/webfonts/v1/webfonts?key={your key}
+
+It gives back a list of fonts and their data (including download links), in JSON format. We search for the font name in that array of JSON. In this case the font name specified was 'Roboto Mono' so it's JSON data is the following:
+```json
+{
+  "family": "Roboto Mono",
+  "variants": [
+    "100",
+    "200",
+    "300",
+    "regular",
+    "500",
+    "600",
+    "700",
+    "100italic",
+    "200italic",
+    "300italic",
+    "italic",
+    "500italic",
+    "600italic",
+    "700italic"
+  ],
+  "subsets": [
+    "cyrillic",
+    "cyrillic-ext",
+    "greek",
+    "latin",
+    "latin-ext",
+    "vietnamese"
+  ],
+  "version": "v22",
+  "lastModified": "2022-09-22",
+  "files": {
+    "100": "http://fonts.gstatic.com/s/robotomono/v22/L0xuDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_3vuPQ--5Ip2sSQ.ttf",
+    "200": "http://fonts.gstatic.com/s/robotomono/v22/L0xuDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_XvqPQ--5Ip2sSQ.ttf",
+    "300": "http://fonts.gstatic.com/s/robotomono/v22/L0xuDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_gPqPQ--5Ip2sSQ.ttf",
+    "regular": "http://fonts.gstatic.com/s/robotomono/v22/L0xuDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_3vqPQ--5Ip2sSQ.ttf",
+    "500": "http://fonts.gstatic.com/s/robotomono/v22/L0xuDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_7PqPQ--5Ip2sSQ.ttf",
+    "600": "http://fonts.gstatic.com/s/robotomono/v22/L0xuDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_AP2PQ--5Ip2sSQ.ttf",
+    "700": "http://fonts.gstatic.com/s/robotomono/v22/L0xuDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_Of2PQ--5Ip2sSQ.ttf",
+    "100italic": "http://fonts.gstatic.com/s/robotomono/v22/L0xoDF4xlVMF-BfR8bXMIjhOsXG-q2oeuFoqFrlnAeW9AJi8SZwt.ttf",
+    "200italic": "http://fonts.gstatic.com/s/robotomono/v22/L0xoDF4xlVMF-BfR8bXMIjhOsXG-q2oeuFoqFrnnAOW9AJi8SZwt.ttf",
+    "300italic": "http://fonts.gstatic.com/s/robotomono/v22/L0xoDF4xlVMF-BfR8bXMIjhOsXG-q2oeuFoqFrk5AOW9AJi8SZwt.ttf",
+    "italic": "http://fonts.gstatic.com/s/robotomono/v22/L0xoDF4xlVMF-BfR8bXMIjhOsXG-q2oeuFoqFrlnAOW9AJi8SZwt.ttf",
+    "500italic": "http://fonts.gstatic.com/s/robotomono/v22/L0xoDF4xlVMF-BfR8bXMIjhOsXG-q2oeuFoqFrlVAOW9AJi8SZwt.ttf",
+    "600italic": "http://fonts.gstatic.com/s/robotomono/v22/L0xoDF4xlVMF-BfR8bXMIjhOsXG-q2oeuFoqFrm5B-W9AJi8SZwt.ttf",
+    "700italic": "http://fonts.gstatic.com/s/robotomono/v22/L0xoDF4xlVMF-BfR8bXMIjhOsXG-q2oeuFoqFrmAB-W9AJi8SZwt.ttf"
+  },
+  "category": "monospace",
+  "kind": "webfonts#webfont"
+},
+```
+
+Here you can see in the 'files' key, it has an object where the names of different variations have the links of files. Now the challenge is to decide what should the user enter as an input name for the font variation in the program.
+
+One solution for now is the following: we can specify which font to use by using the variation name from the Google Fonts website (ignoring the title of the font like 'light', 'regular', 'bold' etc). Following picture(s) show the font variations of the Roboto Mono font:
+
+![Font Variations 1](https://i.imgur.com/vPEnhY7.png)
+![Font Variations 2](https://i.imgur.com/KDRBFA9.png)
+
+The names of the font variations which the program will be able to accept will be as follows:
+ 
+|Original Variation Name| Input Name |
+|--|--|
+| Light 300 | 300 |
+| Light 300 Italic | 300 italic |
+| Regular 400 | 400 |
+| Regular 400 Italic | 400 italic |
+| Medium 500 | 500 |
+| Medium 500 italic | 500 italic |
+
+So if someone wants to use the `Medium 500 Italic`, then they can write `fontVariation: '500 italic'` or `fontVariation: '500italic'` which will work. 
+
